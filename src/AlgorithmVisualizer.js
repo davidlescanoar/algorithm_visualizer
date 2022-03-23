@@ -5,6 +5,7 @@ import AlgorithmSelector from "./components/AlgorithmSelector";
 import AlgorithmProcess from "./components/AlgorithmProcess";
 //import { dfs, bfs, dijkstra } from "./utils/algorithms";
 import Queue from './utils/Queue';
+import PriorityQueue from './utils/PriorityQueue';
 
 let startingNode, arrivalNode, runAlgorithm;
 const INF = (1<<30);
@@ -102,8 +103,74 @@ async function bfs(graphGrid, setGraphGrid) {
     return distance[arrivalNode.x][arrivalNode.y];
 }
 
-async function dijkstra() {
+async function dijkstra(graphGrid, setGraphGrid) {
+    let n = graphGrid.length;
+    let m = graphGrid[0].length;
 
+    let distance = Array(n).fill().map(() => Array(m).fill(INF));
+    let parent = Array(n).fill().map(() => Array(m).fill(null));
+    distance[startingNode.x][startingNode.y] = 0;
+
+    let queue = new PriorityQueue();
+    queue.enqueue({x: 0, y: startingNode});
+
+    while(queue.size) {
+        let top = queue.dequeue();
+        let dist = top.x;
+        let node = top.y;
+        console.log(top);
+
+        if(dist > distance[node.x][node.y])
+            continue;
+
+        if(!runAlgorithm) {
+            await setNode(graphGrid, setGraphGrid, startingNode, DEPARTURE_POINT, 0);
+            await setNode(graphGrid, setGraphGrid, arrivalNode, ARRIVAL_POINT, 0);
+            return;
+        }
+
+        await setNode(graphGrid, setGraphGrid, node, NODE_IN_PROCESS, 0);
+
+        for(let k=0; k<4; k++) {
+            const i2 = node.x+dx[k];
+            const j2 = node.y+dy[k];
+            if(itIsValid(n,m,i2,j2) && graphGrid[i2][j2] !== WALLED_CELL && dist+1 < distance[i2][j2]) {
+                distance[i2][j2] = dist+1;
+                parent[i2][j2] = JSON.parse(JSON.stringify(node));
+                await setNode(graphGrid, setGraphGrid, node, NODE_TO_BE_PROCESSED, 0);
+                queue.enqueue({x:dist+1, y: {x: i2, y: j2}});
+            }
+        }
+
+        await setNode(graphGrid, setGraphGrid, node, NODE_PROCESSED, 0);
+    }
+
+    let grid = graphGrid.slice();
+    for(let i = 0; i < n; i++) {
+        for(let j = 0; j < m; j++) {
+            if(grid[i][j] === NODE_PROCESSED) {
+                grid[i][j] = EMPTY_CELL;
+            }
+        }
+    }
+    setGraphGrid(grid);
+
+    let i = arrivalNode.x, j = arrivalNode.y;
+
+    let path = [arrivalNode];
+    while(parent[i][j]) {
+        const node = parent[i][j];
+        path.push(node);
+        i = node.x;
+        j = node.y;
+    }
+
+    for(let i=path.length-1; i>=0; i--) 
+        await setNode(graphGrid, setGraphGrid, path[i], PATH, 10);
+
+    await setNode(graphGrid, setGraphGrid, startingNode, DEPARTURE_POINT, 0);
+    await setNode(graphGrid, setGraphGrid, arrivalNode, ARRIVAL_POINT, 0);
+    return distance[arrivalNode.x][arrivalNode.y];
 }
 
 function AlgorithmVisualizer() {
